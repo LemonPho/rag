@@ -12,7 +12,7 @@ export default defineConfig({
       // No rewrite: the backend serves its routes under /api too, so dev and
       // the production build hit identical URLs.
       '/api': {
-        target: process.env.BACKEND || 'http://127.0.0.1:8080',
+        target: process.env.BACKEND || 'http://127.0.0.1:8088',
         changeOrigin: true,
       },
     },

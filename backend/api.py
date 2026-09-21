@@ -6,7 +6,7 @@ Reuses the retrieval logic from ingest.py so search behaves identically in the
 API and on the CLI.
 
     uv pip install fastapi uvicorn qdrant-client
-    uvicorn api:app --host 127.0.0.1 --port 8080   # run from backend/
+    uvicorn api:app --host 127.0.0.1 --port 8088   # run from backend/
 
 Config via environment:
     OLLAMA_URL     default http://localhost:11434
@@ -22,6 +22,7 @@ Config via environment:
 
 import json
 import os
+import sys
 import types
 import urllib.error
 import urllib.request
@@ -238,5 +239,14 @@ app.include_router(router, prefix='/api')
 # Serve the built frontend if present (npm run build -> frontend/dist).
 # html=True gives SPA fallback: unknown paths return index.html.
 WEB_DIR = os.getenv('WEB_DIR', '../frontend/dist')
-if os.path.isdir(WEB_DIR):
-    app.mount('/', StaticFiles(directory=WEB_DIR, html=True), name='web')
+_resolved = os.path.abspath(WEB_DIR)
+if os.path.isfile(os.path.join(_resolved, 'index.html')):
+    app.mount('/', StaticFiles(directory=_resolved, html=True), name='web')
+    print(f'serving frontend from {_resolved}', flush=True)
+else:
+    # Loud on purpose: a missing or mistyped WEB_DIR otherwise shows up only as
+    # a bare 404 at / with nothing in the log to explain it.
+    print(f'WARNING: no frontend at {_resolved} '
+          f'(WEB_DIR={WEB_DIR!r}, cwd={os.getcwd()!r}, '
+          f'isdir={os.path.isdir(_resolved)}); serving API only',
+          file=sys.stderr, flush=True)
