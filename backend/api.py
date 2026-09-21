@@ -6,7 +6,7 @@ Reuses the retrieval logic from ingest.py so search behaves identically in the
 API and on the CLI.
 
     uv pip install fastapi uvicorn qdrant-client
-    uvicorn api:app --host 127.0.0.1 --port 8080
+    uvicorn api:app --host 127.0.0.1 --port 8080   # run from backend/
 
 Config via environment:
     OLLAMA_URL     default http://localhost:11434
@@ -17,6 +17,7 @@ Config via environment:
     NUM_CTX        default 16384   <- must be large enough for TOP_K chunks
     TOP_K          default 5
     THINK          default 0       <- Qwen3 thinking mode
+    WEB_DIR        default ../frontend/dist
 """
 
 import json
@@ -25,9 +26,9 @@ import types
 import urllib.error
 import urllib.request
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import ingest
@@ -63,12 +64,7 @@ RETRIEVAL = types.SimpleNamespace(
 )
 
 app = FastAPI(title='doc-rag')
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=['http://localhost:5173', 'http://127.0.0.1:5173'],
-    allow_methods=['*'],
-    allow_headers=['*'],
-)
+router = APIRouter()
 
 
 class QueryRequest(BaseModel):
@@ -126,7 +122,7 @@ def ollama_chat(messages, stream):
     return urllib.request.urlopen(req, timeout=600)
 
 
-@app.get('/health')
+@router.get('/health')
 def health():
     status = {'qdrant': 'down', 'ollama': 'down', 'collection': None}
     try:
@@ -158,7 +154,7 @@ def health():
     return status
 
 
-@app.get('/documents')
+@router.get('/documents')
 def documents():
     """Distinct doc_ids in the collection, with chunk counts."""
     from qdrant_client import QdrantClient
@@ -178,14 +174,14 @@ def documents():
                           for k, v in sorted(counts.items())]}
 
 
-@app.post('/search')
+@router.post('/search')
 def search_only(req: QueryRequest):
     """Retrieval with no generation — for debugging answer quality."""
     return {'question': req.question,
             'passages': retrieve(req.question, req.top_k)}
 
 
-@app.post('/query')
+@router.post('/query')
 def query(req: QueryRequest):
     passages = retrieve(req.question, req.top_k)
     try:
@@ -202,7 +198,7 @@ def query(req: QueryRequest):
     }
 
 
-@app.post('/query/stream')
+@router.post('/query/stream')
 def query_stream(req: QueryRequest):
     """SSE: citations first, then answer tokens as they arrive."""
     passages = retrieve(req.question, req.top_k)
@@ -233,3 +229,14 @@ def query_stream(req: QueryRequest):
     return StreamingResponse(events(), media_type='text/event-stream',
                              headers={'Cache-Control': 'no-cache',
                                       'X-Accel-Buffering': 'no'})
+
+
+# API lives under /api so the dev proxy and the production build use identical
+# URLs. Mounted before the SPA so /api/* never falls through to StaticFiles.
+app.include_router(router, prefix='/api')
+
+# Serve the built frontend if present (npm run build -> frontend/dist).
+# html=True gives SPA fallback: unknown paths return index.html.
+WEB_DIR = os.getenv('WEB_DIR', '../frontend/dist')
+if os.path.isdir(WEB_DIR):
+    app.mount('/', StaticFiles(directory=WEB_DIR, html=True), name='web')

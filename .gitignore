@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Node / frontend build
+node_modules/
+frontend/dist/
+*.local
+
+# Pipeline artifacts (regenerable; can be large)
+outputs/
+corpus/
+chunks.jsonl
+log/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
