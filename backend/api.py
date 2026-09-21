@@ -41,15 +41,16 @@ TOP_K = int(os.getenv('TOP_K', '5'))
 THINK = os.getenv('THINK', '0') == '1'
 
 SYSTEM_PROMPT = (
-    'You answer questions about a document collection.\n'
-    'Rules:\n'
-    '1. Use ONLY the numbered CONTEXT passages provided. Never use outside '
-    'knowledge.\n'
-    '2. Cite the passage numbers you relied on, like [1] or [2][3].\n'
-    '3. If the CONTEXT does not contain the answer, reply exactly: '
-    '"Not found in the documents." Do not guess.\n'
-    '4. Tables are given as HTML. Read them carefully and quote exact values.\n'
-    '5. Be concise.'
+    'Responde preguntas sobre una colección de documentos. '
+    'Escribe siempre en español.\n'
+    'Reglas:\n'
+    '1. Usa ÚNICAMENTE los fragmentos numerados de CONTEXTO. Nunca uses '
+    'conocimiento externo.\n'
+    '2. Cita los números de los fragmentos que utilices, así: [1] o [2][3].\n'
+    '3. Si el CONTEXTO no contiene la respuesta, responde exactamente: '
+    '"No se encuentra en los documentos." No inventes nada.\n'
+    '4. Las tablas se dan en HTML. Léelas con cuidado y cita valores exactos.\n'
+    '5. Sé conciso.'
 )
 
 # Namespace matching what ingest.search() reads off its args object.
@@ -99,14 +100,14 @@ def build_messages(question, passages):
         path = ' > '.join(p['heading_path'])
         header = f'[{p["n"]}] {p["doc_id"]}'
         if p['page']:
-            header += f' page {p["page"]}'
+            header += f' página {p["page"]}'
         if path:
             header += f' — {path}'
         blocks.append(f'{header}\n{p["text"]}')
-    context = '\n\n---\n\n'.join(blocks) if blocks else '(no passages found)'
+    context = '\n\n---\n\n'.join(blocks) if blocks else '(sin fragmentos)'
     return [
         {'role': 'system', 'content': SYSTEM_PROMPT},
-        {'role': 'user', 'content': f'CONTEXT\n\n{context}\n\nQUESTION: {question}'},
+        {'role': 'user', 'content': f'CONTEXTO\n\n{context}\n\nPREGUNTA: {question}'},
     ]
 
 
